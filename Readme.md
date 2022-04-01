@@ -1,4 +1,4 @@
-<div style="text-align:center"><img src="asserts/banner.png" /></div>
+<div style="text-align:center"><img src="assets/banner.png" /></div>
 
 ---
 
@@ -37,7 +37,7 @@ Add `flameshot-lens` script in `$HOME/.local/bin`
 
 **Preview** :
 
-<div style="text-align:center"><img src="asserts/terminal_preview.png" /></div>
+<div style="text-align:center"><img src="assets/terminal_preview.png" /></div>
 
 #### Via Shortcut
 
@@ -51,7 +51,7 @@ super + shift + Print
 
 **Preview** :
 
-<div style="text-align:center"><img src="asserts/demo.gif" /></div>
+<div style="text-align:center"><img src="assets/demo.gif" /></div>
 
 ### Troubleshoot
 
