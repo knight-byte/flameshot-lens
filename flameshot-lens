@@ -1,0 +1,123 @@
+#! /bin/bash
+
+# author : Abunachar ( knight-byte )
+
+# ===========================
+_SCREENSHOT_DIR_=$HOME/Pictures
+_LOG_FILE_="$_SCREENSHOT_DIR_/.flameshot-lens.log"
+_UPLOAD_ID_=''
+
+
+# ===========================
+# List of Colors
+Light_Red="\033[1;31m"
+Light_Green="\033[1;32m"
+Yellow="\033[1;33m"
+Light_Blue="\033[1;34m"
+Light_Purple="\033[1;35m"
+Light_Cyan="\033[1;36m"
+NoColor="\033[0m"
+
+# ===========================
+trap ctrl_c INT
+
+function ctrl_c() {
+    echo -ne "  -- Exiting --  "
+}
+
+function get_upload_id(){
+
+    _UPLOAD_ID_=$(curl -sI -X POST \
+    'https://lens.google.com/_/upload/' \
+    --header 'x-client-side-image-upload: true' \
+    --header 'x-goog-upload-protocol: resumable' \
+    --header 'x-goog-upload-command: start' \
+    | grep -ohP '(?<=(x-guploader-uploadid:\s)).*(?=(\n|\s))' )
+    
+    local size=${#_UPLOAD_ID_}
+    if [[ $size -le 0 ]];then
+        notify-send -u critical -t 3000 "[ ERROR ] - Fail to Upload"
+        echo -e "${Light_Red} [ Failed ] ${NoColor}"
+        exit 1
+    fi
+}
+
+function upload_image(){
+    notify-send -i $_LATEST_IMAGE_ -t 3000 -u normal "Searching ... " >> $_LOG_FILE_ 2>&1
+    get_upload_id
+
+    local response=$(curl -s -X POST  \
+    "https://lens.google.com/_/upload/?upload_id=$_UPLOAD_ID_&upload_protocol=resumable" \
+    --header 'x-client-side-image-upload: true' \
+    --header 'x-goog-upload-offset: 0' \
+    --header 'x-goog-upload-command: upload, finalize' \
+    --header 'Content-Type: image/jpeg' \
+    --data-binary "@$_LATEST_IMAGE_" \
+    | grep -oh 'search[^"]*' \
+    | sed 's/\\u003d/=/g' )
+
+    local size=${#response}
+    if [[ $size -le 0 ]];then
+        notify-send -u critical -t 3000 "[ ERROR ] - Fail to Upload"
+        echo -e "${Light_Red} [ Failed ] ${NoColor}"
+        exit 1
+    fi
+    echo -e "${Light_Green} [ Success ] ${NoColor}"
+
+    url="https://lens.google.com/$response"
+    echo $url | xclip -sel clip > /dev/null 2>&1
+    printf "%-50s" "**|--[+]*Opening*URL*" | sed 's/ /./g' | sed 's/*/ /g'
+    xdg-open $url > /dev/null 2>&1
+    echo -e "${Light_Green} [ Success ] ${NoColor}"
+}
+
+function check() {
+
+    if [[ $? -eq 0 && ${PIPESTATUS[0]} -eq 0 ]]; then
+        echo -e "${Light_Green} [ Success ] ${NoColor}"
+    else
+        echo -e "${Light_Red} [ Failed ] ${NoColor}"
+
+        echo -e "\n\n${Light_Cyan} [+] SUMMARY |${Light_Red} FAILED ${NoColor}"
+        _end_job_=$(date +%s)
+        notify-send -u critical -t 3000 "[ ERROR ]  Screenshot : $_LOG_FILE_" >> $_LOG_FILE_ 2>&1
+        exit 1
+    fi
+}
+
+function get_latest_img() { 
+
+    _LATEST_IMAGE_=$(/bin/ls -th $_SCREENSHOT_DIR_ | grep -vE '.jpg$' | grep -E '.png$' | head -n 1)
+
+    if [[ $( echo "$_LATEST_IMAGE_" | wc -w ) -eq 0 ]]; then
+        echo -e "${Light_Purple} [ No New Image Detected ] ${NoColor}"
+        exit 1
+    else
+        echo -e "${Light_Green} [ Success ] ${Yellow} ($_LATEST_IMAGE_) ${NoColor}"
+        _LATEST_IMAGE_="$_SCREENSHOT_DIR_/$_LATEST_IMAGE_"
+    fi
+}
+
+
+
+function main(){
+    echo -e "\n\n\t\t\t${Light_Blue} FLAMESHOT LENS ${NoColor}\n"
+    rm -f $_LOG_FILE_
+    _start_job_=$(date +%s)
+
+    printf "%-50s" "**|--[+]*Starting*Flameshot*" | sed 's/ /./g' | sed 's/*/ /g'
+    flameshot gui --raw --delay 100 > /dev/null 2>&1
+    check
+
+    printf "%-50s" "**|--[+]*Getting*Latest*Image*" | sed 's/ /./g' | sed 's/*/ /g'
+    get_latest_img
+
+    printf "%-50s" "**|--[+]*Uploading*Image*" | sed 's/ /./g' | sed 's/*/ /g'
+    upload_image
+
+    exit 0
+
+}
+
+clear
+main
